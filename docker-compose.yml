@@ -1,0 +1,15 @@
+services:
+  clipper-api:
+    build: .
+    container_name: ai-youtube-clipper-api
+    ports:
+      - "8787:8787"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      CLIPPER_API_TOKEN: ${CLIPPER_API_TOKEN}
+      GEMINI_MODEL: gemini-2.5-flash
+      CLIPPER_OUTPUT_DIR: /data/clips
+      MAX_VIDEO_BYTES: "2147483648"
+    volumes:
+      - ./output:/data/clips
+    restart: unless-stopped

@@ -1,0 +1,27 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Output media & generated clips
+output/
+downloads/
+*.mp4
+*.vtt
+*.mkv
+*.webm
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+
+# OS / Editor artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

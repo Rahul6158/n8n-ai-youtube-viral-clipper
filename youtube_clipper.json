@@ -1,0 +1,164 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "AI YouTube Clip Creator",
+        "formDescription": "Paste a YouTube URL to identify strong moments and render captioned vertical clips. Only process videos you own or have permission to reuse.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "YouTube URL",
+              "fieldName": "video_url",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Number of clips (1-5)",
+              "fieldName": "clip_count",
+              "fieldType": "number",
+              "defaultValue": 3,
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Format",
+              "fieldName": "aspect_ratio",
+              "fieldType": "dropdown",
+              "defaultValue": "Portrait 9:16",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Portrait 9:16"
+                  },
+                  {
+                    "option": "Landscape 16:9"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Maximum clip length in seconds",
+              "fieldName": "max_duration",
+              "fieldType": "number",
+              "defaultValue": 45,
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "ef167d2e-190e-481d-8d2a-1c136c4551f8",
+      "name": "Submit YouTube URL",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        3456,
+        -96
+      ],
+      "webhookId": "25a3a183-507d-46e6-8170-3a65912cc77e"
+    },
+    {
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nlet raw = String(typeof j === 'string' ? j : (j.video_url ?? j['YouTube URL'] ?? j.url ?? '')).trim();\nif (!raw) {\n  throw new Error('Please enter a YouTube URL.');\n}\nif (!/^https?:\\/\\//i.test(raw)) {\n  raw = 'https://' + raw;\n}\nconst match = raw.match(/^https?:\\/\\/([^\\/?#]+)(?:[\\/?#]|$)/i);\nif (!match) {\n  throw new Error('Enter a valid URL. Received: ' + raw);\n}\nconst host = match[1].toLowerCase().replace(/^www\\./, '');\nif (!['youtube.com','m.youtube.com','youtu.be','youtube-nocookie.com'].includes(host) && !host.endsWith('.youtube.com')) {\n  throw new Error('Only youtube.com and youtu.be URLs are accepted. Received: ' + raw);\n}\nconst clipCount = Math.max(1, Math.min(5, Number(j.clip_count ?? j['Number of clips (1-5)'] ?? 3)));\nconst maxDuration = Math.max(15, Math.min(90, Number(j.max_duration ?? j['Maximum clip length in seconds'] ?? 45)));\nconst formatRaw = String(j.aspect_ratio ?? j.Format ?? 'Portrait 9:16');\nreturn [{\n  json: {\n    video_url: raw,\n    clip_count: Number.isFinite(clipCount) ? clipCount : 3,\n    max_duration: Number.isFinite(maxDuration) ? maxDuration : 45,\n    aspect_ratio: /landscape/i.test(formatRaw) ? 'landscape' : 'portrait'\n  }\n}];"
+      },
+      "id": "aaaf3316-8ed6-403a-81df-e13c75034e01",
+      "name": "Validate Form Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3712,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8787/clip",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer thisisfortheclippingappthatimadenicely"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 3600000
+        }
+      },
+      "id": "eb165e77-3dcb-477f-b88c-0388ac82656b",
+      "name": "Download, Analyze and Render Clips",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3984,
+        -96
+      ],
+      "notesInFlow": true,
+      "notes": "Requires the companion API service from the ZIP. For Docker Desktop on Windows, host.docker.internal resolves to the host. If n8n and the API run in the same Compose network, replace the host with the API service name."
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nif (r.error) throw new Error(String(r.error));\nif (!Array.isArray(r.clips) || r.clips.length === 0) {\n  throw new Error('The clip service returned no clips. Check the service logs and whether the video has usable captions.');\n}\nreturn [{json:{\n  status: 'completed',\n  source_url: r.source_url,\n  title: r.title,\n  output_directory: r.output_directory,\n  clips_created: r.clips.length,\n  clips: r.clips,\n  message: `Created ${r.clips.length} clip(s). Files are saved in the output directory.`\n}}];"
+      },
+      "id": "6eb7e245-26c5-46d6-bef3-776dc844b0a1",
+      "name": "Format Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4256,
+        -96
+      ]
+    }
+  ],
+  "connections": {
+    "Submit YouTube URL": {
+      "main": [
+        [
+          {
+            "node": "Validate Form Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Form Input": {
+      "main": [
+        [
+          {
+            "node": "Download, Analyze and Render Clips",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download, Analyze and Render Clips": {
+      "main": [
+        [
+          {
+            "node": "Format Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "45281cceade8d5ed7eb85e51f2c925bab32aa2f12c6de2fb2f7fdc9ea0b0bbe4"
+  }
+}
